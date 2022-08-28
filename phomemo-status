@@ -1,0 +1,91 @@
+#!/usr/local/bin/perl -w
+
+# Try to get some status info from a phomemo. Seems like this works
+# on bluetooth only, not on the pseudo terminal or /dev/usb/lp.
+
+use Fcntl;
+use Time::HiRes qw(usleep);
+
+%cfg = (
+	font => "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
+	paperwidth => 576,		# This is for M02S. M02 needs 384.
+	divisor => 1,			# assume full width
+	device => "/dev/usb/lp1",
+);
+
+readconf("phomemo.cfg");
+
+while ($#ARGV > 1 && substr($ARGV[0], 0, 2) eq "--") {
+	my $key = substr($ARGV[0], 2);
+	my $val = $ARGV[1];
+	$cfg{$key} = $val;
+	shift @ARGV; shift @ARGV;
+}
+
+
+sysopen(PRINTER, "$cfg{device}", O_NONBLOCK|O_RDWR)
+	or die "Cannot open printer $cfg{device}: $@";
+# open(PRINTER, "<+$cfg{device}") or die "Cannot open printer $cfg{device}: $@";
+syswrite PRINTER,"\x1b@";
+sleep(1);
+
+# status("Firmware version", 7);	# This works in the app but not for me?
+status("Energy", 8);
+status("Sn", 9);
+status("Device Timer", 14);
+status("Paper State", 17);
+status("??????", 18);
+status("Serial", 19);
+status("?????", 32);
+# status("Chip Type", 56);
+
+# for ($i=0; $i<64; $i++) {
+# 	if ($i == 0x0a || $i == 0x1e || $i == 0x28) {
+# 		next;
+# 	}
+# 	status("Number", $i);
+# }
+
+print PRINTER "\x1b@";
+close PRINTER;
+
+sub status {
+	my $name = shift;
+	my $byte = shift;
+	syswrite PRINTER,"\x1f\x11" . chr($byte);
+	printf("%02x %-12s:\t", $byte, $name);
+
+	usleep(100000);
+	unless(sysread(PRINTER, $in, 100)) {
+		print "no response\n";
+		return;
+	}
+	for ($j=0; $j<length($in); $j++) {
+		printf("%02x ", ord(substr($in, $j)));
+	}
+	print "   ";
+	for ($j=0; $j<length($in); $j++) {
+		$c = substr($in, $j, 1);
+		$o = ord($c);
+		print ($o < 32 || $o > 126 ? '.' : $c);
+	}
+	print "\n";
+}
+
+
+sub readconf {
+	my $filename = shift;
+	if (!-f($filename)) {
+		$filename = "$ENV{HOME}/.config/$filename";
+	}
+	if (open(CFG, "<$filename")) {
+		while (<CFG>) {
+			chomp; y/\r//d;
+			next if /^#/;
+			next unless /.+=.+/;
+			my ($key, $val) = split("=", $_, 2);
+			$cfg{$key} = $val;
+		}
+		close CFG;
+	}
+}
