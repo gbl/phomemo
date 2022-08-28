@@ -92,3 +92,16 @@ Maybe, maybe not. The M02S is the only one I own so I can't tell anything about
 other models or brands. The command set seems to be standardized (Epson POS)
 so there is a chance to get others to work as well; the main problem
 is probably figuring out the correct paper width.
+
+
+Thanks go to
+------------
+
+Thank you to vivier (https://github.com/vivier/phomemo-tools) for the insight
+I needed to make this work. The fact that the printer uses ESC/POS is from him,
+and I wouldn't have any idea how to do Bluetooth
+without his instructions.
+
+Thanks also to theacodes (https://github.com/theacodes/phomemo_m02s), her
+code made me realize the M02S has 576 pixels, after I never got any output
+while using the 384 pixels from vivier's code.
