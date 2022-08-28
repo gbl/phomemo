@@ -1,0 +1,116 @@
+#!/usr/local/bin/perl -w
+
+use GD;
+
+%cfg = (
+	font => "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
+	paperwidth => 576,		# This is for M02S. M02 needs 384.
+	divisor => 1,			# assume full width
+	device => "/dev/usb/lp1",
+);
+
+readconf("phomemo.cfg");
+
+while ($#ARGV > 1 && substr($ARGV[0], 0, 2) eq "--") {
+	my $key = substr($ARGV[0], 2);
+	my $val = $ARGV[1];
+	$cfg{$key} = $val;
+	shift @ARGV; shift @ARGV;
+}
+
+my $text = shift;
+die "No text to print given"  unless $text;
+
+
+# We want to size the image according to the needed width. We also need to
+# scale the height, but this depends on downstroke, and possible accents.
+# If we print several labels, one with "abc", and one with accents and
+# downstrokes, we want the font size to stay the same. So calculate the
+# real width of our text, and the height of some text that should be as
+# high as possible.
+
+my @xbounds = GD::Image->stringFT(0, $cfg{font}, 100, 0, 0, 0, $text);
+my @ybounds = GD::Image->stringFT(0, $cfg{font}, 100, 0, 0, 0, "Âq");
+
+# print "x1=$xbounds[0] x2=$xbounds[2] y1=$ybounds[1] y2=$ybounds[5]\n";
+
+my $width = $xbounds[2] + $xbounds[0];	# yes, plus. GD leaves a bit of margin
+					# at the left, add this to the right.
+my $height = $ybounds[1] - $ybounds[5];
+my $usable_pixels = $cfg{paperwidth} / $cfg{divisor} * 0.9; # 10% unused
+my $factor = $usable_pixels / $height;
+my $imwidth = int( $width * $factor ) + 1;
+
+# print "using image size $imwidth x $cfg{paperwidth}\n";
+my $im = new GD::Image($imwidth, $cfg{paperwidth});
+my $white = $im->colorAllocate(255,255,255);
+my $black = $im->colorAllocate(0,0,0);
+
+my @bounds = $im->stringFT(
+	- $black,				# negative disables antialiasing
+	$cfg{font}, 100*$factor, 0,
+	0,
+		$cfg{paperwidth}		# absolute max height
+		- $ybounds[1] * $factor	# nudge up by max downstroke
+		- $usable_pixels * 0.05,	# nudge up 5% of usable height
+	$text);
+# print "bounds are ", join(",", @bounds), "\n"; 
+# print "x1=$bounds[0] x2=$bounds[2] y1=$bounds[1] y2=$bounds[5]\n";
+
+# open(OUT, ">phomemo.png");
+# binmode OUT;
+# print OUT $im->png;
+# close OUT;
+
+open(PRINTER, ">$cfg{device}") or die "Cannot open printer $cfg{device}: $@";
+binmode PRINTER;
+
+# header
+print PRINTER "\x1b\x40";		# ESC @ reset
+print PRINTER "\x1b\x61\x01";		# ESC a 1 - align to center ...
+# print PRINTER "\x1f\x11\x02\x04";	# US ... unknown?
+
+$xpos = $imwidth - 1;
+while ($xpos >= 0) {
+	$lines = ($xpos > 200 ? 200 : $xpos+1);
+	# GS v 0 \0 xxxx yyyy
+	print PRINTER "\x1d\x76\x30\x00";
+	print PRINTER pack("v", $cfg{paperwidth} / 8);
+	print PRINTER pack("v", $lines);
+
+	for ($i=0; $i<$lines; $i++) {
+		$byte = 0;
+		for ($ypos=0; $ypos<$cfg{paperwidth}; $ypos++) {
+			$byte = ($byte << 1) | ( $im->getPixel($xpos-$i, $ypos) == 1);
+			if (($ypos & 7) == 7) {
+				# print PRINTER $byte;
+				print PRINTER pack("C", $byte);
+				$byte = 0;
+			}
+		}
+	}
+	$xpos -= $lines;
+}
+
+print PRINTER "\x1b\x64\x04";		# ESC D 4 - advance 4 lines
+# print PRINTER "\x1f\x11\x08";		# unknown
+# print PRINTER "\x1f\x11\x0e";		# unknown
+# print PRINTER "\x1f\x11\x07";		# unknown
+# print PRINTER "\x1f\x11\x09";		# unknown
+
+sub readconf {
+	my $filename = shift;
+	if (!-f($filename)) {
+		$filename = "$ENV{HOME}/.config/$filename";
+	}
+	if (open(CFG, "<$filename")) {
+		while (<CFG>) {
+			chomp; y/\r//d;
+			next if /^#/;
+			next unless /.+=.+/;
+			my ($key, $val) = split("=", $_, 2);
+			$cfg{$key} = $val;
+		}
+		close CFG;
+	}
+}
