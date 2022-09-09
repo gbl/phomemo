@@ -7,6 +7,7 @@ use GD;
 	paperwidth => 576,		# This is for M02S. M02 needs 384.
 	divisor => 1,			# assume full width
 	device => "/dev/usb/lp1",
+	imageonly => 0,
 );
 
 readconf("phomemo.cfg");
@@ -29,8 +30,9 @@ die "No text to print given"  unless $text;
 # real width of our text, and the height of some text that should be as
 # high as possible.
 
+my $nlcount = $text =~ y/\n//;
 my @xbounds = GD::Image->stringFT(0, $cfg{font}, 100, 0, 0, 0, $text);
-my @ybounds = GD::Image->stringFT(0, $cfg{font}, 100, 0, 0, 0, "Âq");
+my @ybounds = GD::Image->stringFT(0, $cfg{font}, 100, 0, 0, 0, substr(("\nÂq" x ($nlcount+1)), 1));
 
 # print "x1=$xbounds[0] x2=$xbounds[2] y1=$ybounds[1] y2=$ybounds[5]\n";
 
@@ -57,10 +59,13 @@ my @bounds = $im->stringFT(
 # print "bounds are ", join(",", @bounds), "\n"; 
 # print "x1=$bounds[0] x2=$bounds[2] y1=$bounds[1] y2=$bounds[5]\n";
 
-# open(OUT, ">phomemo.png");
-# binmode OUT;
-# print OUT $im->png;
-# close OUT;
+if ($cfg{imageonly}) {
+	open(OUT, ">phomemo.png");
+	binmode OUT;
+	print OUT $im->png;
+	close OUT;
+	exit(1);
+}
 
 open(PRINTER, ">$cfg{device}") or die "Cannot open printer $cfg{device}: $@";
 binmode PRINTER;
