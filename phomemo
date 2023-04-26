@@ -6,7 +6,7 @@ use GD;
 	font => "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
 	paperwidth => 576,		# This is for M02S. M02 needs 384.
 	divisor => 1,			# assume full width
-	device => "/dev/usb/lp1",
+	device => "/dev/usb/lp?",
 	imageonly => 0,
 );
 
@@ -67,7 +67,18 @@ if ($cfg{imageonly}) {
 	exit(1);
 }
 
-open(PRINTER, ">$cfg{device}") or die "Cannot open printer $cfg{device}: $@";
+@device=glob($cfg{device});
+if ($#device == -1) {
+	print STDERR "$cfg{device} does not find any device\n";
+	exit(1);
+} elsif ($#device > 0) {
+	print STDERR "$cfg{device} finds ".($#device)." devices (".join(",", @device)."); please select one\n";
+	exit(1);
+}
+
+# print "found device $device[0]\n";
+
+open(PRINTER, ">$device[0]") or die "Cannot open printer $device[0]: $@";
 binmode PRINTER;
 
 # header
