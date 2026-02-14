@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/perl -w
 
 # Try to get some status info from a phomemo. Seems like this works
 # on bluetooth only, not on the pseudo terminal or /dev/usb/lp.
