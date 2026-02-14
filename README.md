@@ -85,6 +85,17 @@ phomemo --font /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf --divisor 2 --dev
 where the option names are just the names from the config file.
 
 
+QRCodes
+-------
+Since February 2026 we can print QRCodes as well. Just add `--qrcode <pixelsize>`
+to the command line, where pixelsize is the amount of pixels for each block in
+the QRCode. As the QRcode grows and shrinks with the amount of text it contains,
+the divisor setting is not used; you need to set the size to match your paper
+size to the QRCode size. 4 is a good starting point for a 1/3 width paper roll.
+
+To make this work, you need the GD::Barcode:QRCode perl module; on Debian
+related systems, use `apt install libgd-barcode-perl`.
+
 Other printers?
 ---------------
 
